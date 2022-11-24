@@ -26,8 +26,13 @@ def reset_credentials():
 def check_if_credentials_are_set():
     if os.environ.get('AWS_ACCESS_KEY_ID') is None or os.environ.get('AWS_SECRET_ACCESS_KEY') is None:
         console.print("Credenciais não encontradas!", style="bold red")
-        console.print("Para começar, vamos te credenciar para o funcionamento correto da aplicação!")
+        console.print("[ATENÇÃO] Você pode colocar suas credenciais nas variáveis de ambiente do seu sistema, facilitando o uso da aplicação!", style="bold yellow")
+        console.print("Para fazer isso, basta criar as variáveis de ambiente AWS_ACCESS_KEY_ID e AWS_SECRET_ACCESS_KEY com suas credenciais!", style="bold yellow")
+        console.print("Caso não saiba como fazer isso, é simples: no terminal digite export AWS_ACCESS_KEY_ID=<sua_access_key_id> e depois export AWS_SECRET_ACCESS_KEY=<sua_secret_access_key>", style="bold yellow")
+        console.print("Por agora, vamos te credenciar para que você possa usar a aplicação!\n", style="bold yellow")
         set_credentials()
+    else:
+        console.print("Credenciais encontradas! Agora é só usufruir da aplicação\n", style="bold green")
 
 def run_terraform_command(command):
     cwd = os.getcwd()
