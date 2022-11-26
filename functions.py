@@ -2,6 +2,8 @@ import os
 from simple_term_menu import TerminalMenu
 from rich.console import Console
 import time
+import json
+from textwrap import dedent
 
 console = Console()
 
@@ -35,8 +37,101 @@ def check_if_credentials_are_set():
         console.print("Credenciais encontradas! Agora é só usufruir da aplicação\n", style="bold green")
 
 def run_terraform_command(command):
+    write_instances_and_sgs_to_file()
     cwd = os.getcwd()
     os.chdir(cwd + "/terraform")
     os.system(f"terraform {command}")
     os.chdir(cwd)
     console.print("\n")
+
+def write_instances_and_sgs_to_file():
+    f = open("terraform/variables.json")
+    data = json.load(f)
+    f.close()
+
+    with open("terraform/basefile.txt", "r") as f:
+        with open("terraform/resources.tf", "w") as ff:
+            for line in f.readlines():
+                ff.write(line)
+
+    with open("terraform/resources.tf", "a") as f:
+        for instance in data["instances"]:
+            tf = dedent("""
+            resource "aws_instance" "{}" {{
+                instance_type   = "{}"
+                ami             = "{}"
+                
+                vpc_security_group_ids = [
+                    tobool("{}") ? aws_security_group.{}.id : aws_security_group.default.id
+                ]
+
+                depends_on = [
+                    aws_security_group.{}, aws_security_group.default
+                ]
+                
+                tags = {{
+                    Name = "{}"
+                }}
+            }}
+            """.format(instance["name"], instance["instance_type"], instance["ami"], str(instance["has_sg"]).lower(), instance["sg"], instance["sg"], instance["name"]))
+
+            f.write(tf)
+
+        for sg in data["security_groups"]:
+            tf = dedent("""
+            resource "aws_security_group" "{}" {{
+                name        = "{}"
+                vpc_id      = "vpc-5d9e5327"
+
+                ingress {{
+                    from_port        = 22
+                    to_port          = 22
+                    protocol         = "tcp"
+                    cidr_blocks      = ["0.0.0.0/0"]
+                }}
+
+                egress {{
+                    from_port        = 0
+                    to_port          = 0
+                    protocol         = "-1"
+                    cidr_blocks      = ["0.0.0.0/0"]
+                }}
+
+                tags = {{
+                    Name = "{}"
+                }}
+            }}
+            """.format(sg["name"], sg["name"], sg["name"]))
+
+            f.write(tf)
+
+        for sn in data["subnets"]:
+            tf = dedent("""
+            resource "aws_subnet" "{}" {{
+                vpc_id                  = aws_vpc.{}.id
+                cidr_block              = "{}"
+
+                depends_on = [
+                    aws_vpc.{}
+                ]
+
+                tags = {{
+                    Name = "{}"
+                }}
+            }}
+            """.format(sn["name"], sn["vpc_name"], sn["cidr"], sn["vpc_name"], sn["name"]))
+
+            f.write(tf)
+
+        for vpc in data["vpcs"]:
+            tf = dedent("""
+            resource "aws_vpc" "{}" {{
+                cidr_block = "{}"
+
+                tags = {{
+                    Name = "{}"
+                }}
+            }}
+            """.format(vpc["name"], vpc["cidr"], vpc["name"]))
+
+            f.write(tf)

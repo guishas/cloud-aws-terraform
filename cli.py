@@ -12,8 +12,8 @@ def main():
     time.sleep(1)
     check_if_credentials_are_set()
 
-    while selected_index != 6:
-        options = ["[1] Criar", "[2] Listar", "[3] Deletar", "[4] Terraform CLI", "[5] Mudar região", "[6] Recredenciar", "[7] Sair"]
+    while selected_index != 5:
+        options = ["[1] Criar", "[2] Listar", "[3] Deletar", "[4] Terraform CLI", "[5] Recredenciar", "[6] Sair"]
         terminal_menu = TerminalMenu(options, title="Escolha uma opção:")
         selected_index = terminal_menu.show()
 
@@ -34,22 +34,31 @@ def main():
                 console.print("\n")
 
             if selected_index_create == 1:
-                subnet_name = console.input("Digite o nome da Subnet: ")
                 f = open('terraform/variables.json')
                 data = json.load(f)
                 f.close()
-                options = [vpc["name"] for vpc in data["vpcs"]]
-                terminal_menu = TerminalMenu(options, title="Em qual VPC deseja criar a Subnet?")
-                selected_index_vpc = terminal_menu.show()
-                vpc_name = options[selected_index_vpc]
-                subnet_cidr = console.input("[bold red]CUIDADO! Use o formato x.x.x.x/x[/bold red] Digite o CIDR da Subnet: ")
-                f = open('terraform/variables.json')
-                data = json.load(f)
-                f.close()
-                data["subnets"].append({"name": subnet_name, "vpc_name": vpc_name, "cidr": subnet_cidr})
-                with open('terraform/variables.json', 'w') as f:
-                    json.dump(data, f, indent=4)
-                console.print("\n")
+                vpcs = data["vpcs"]
+
+                if len(vpcs) == 0:
+                    console.print("Você precisa criar uma VPC primeiro. Crie uma VPC primeiro.", style="bold red")
+                    console.print("\n")
+                else:
+                    subnet_name = console.input("Digite o nome da Subnet: ")
+                    f = open('terraform/variables.json')
+                    data = json.load(f)
+                    f.close()
+                    options = [vpc["name"] for vpc in data["vpcs"]]
+                    terminal_menu = TerminalMenu(options, title="Em qual VPC deseja criar a Subnet?")
+                    selected_index_vpc = terminal_menu.show()
+                    vpc_name = options[selected_index_vpc]
+                    subnet_cidr = console.input("[bold red]CUIDADO! Use o formato x.x.x.x/x[/bold red] Digite o CIDR da Subnet: ")
+                    f = open('terraform/variables.json')
+                    data = json.load(f)
+                    f.close()
+                    data["subnets"].append({"name": subnet_name, "vpc_name": vpc_name, "cidr": subnet_cidr})
+                    with open('terraform/variables.json', 'w') as f:
+                        json.dump(data, f, indent=4)
+                    console.print("\n")
 
             if selected_index_create == 2:
                 instance_name = console.input("Digite o nome da Instância: ")
@@ -57,6 +66,7 @@ def main():
                 terminal_menu = TerminalMenu(options, title="Escolha o tipo da Instância:")
                 selected_index_instance_type = terminal_menu.show()
                 instance_type = options[selected_index_instance_type]
+                console.print(f"Tipo da instância: {instance_type}")
                 imgs = {
                     "Ubuntu Server 22.04 LTS": "ami-08c40ec9ead489470",
                     "Ubuntu Server 20.04 LTS": "ami-0149b2da6ceec4bb0",
@@ -65,10 +75,25 @@ def main():
                 terminal_menu = TerminalMenu(options, title="Escolha a imagem da Instância:")
                 selected_index_instance_image = terminal_menu.show()
                 instance_image = imgs[options[selected_index_instance_image]]
+                image_name = options[selected_index_instance_image]
+                console.print(f"Imagem da instância: {image_name}")
                 f = open('terraform/variables.json')
                 data = json.load(f)
                 f.close()
-                data["instances"].append({"name": instance_name, "instance_type": instance_type, "ami": instance_image, "image": options[selected_index_instance_image]})
+                options = [sg["name"] for sg in data["security_groups"]]
+                if len(options) == 0:
+                    console.print("Você não possui grupos de segurança. Você pode criar um e depois associá-lo à uma instância ou você pode continuar sem um grupo de segurança", style="bold red")
+                    data["instances"].append({"name": instance_name, "instance_type": instance_type, "ami": instance_image, "sg": "default", "image": image_name, "has_sg": False, "region": data["region"]})
+                else:
+                    options.append("Nenhum")
+                    terminal_menu = TerminalMenu(options, title="Escolha o Grupo de Segurança da Instância:")
+                    selected_index_instance_sg = terminal_menu.show()
+                    instance_sg = options[selected_index_instance_sg]
+                    if instance_sg == "Nenhum":
+                        data["instances"].append({"name": instance_name, "instance_type": instance_type, "ami": instance_image, "image": image_name, "sg": "default", "has_sg": False, "region": data["region"]})
+                    else:
+                        data["instances"].append({"name": instance_name, "instance_type": instance_type, "ami": instance_image, "image": image_name, "sg": instance_sg, "has_sg": True, "region": data["region"]})
+
                 with open('terraform/variables.json', 'w') as f:
                     json.dump(data, f, indent=4)
                 console.print("\n")
@@ -122,7 +147,7 @@ def main():
                 data = json.load(f)
                 f.close()
                 for index, instance in enumerate(data["instances"]):
-                    console.print(f"[bold purple][{index+1}][/bold purple] [bold purple]Nome:[/bold purple] {instance['name']}, [bold purple]Tipo:[/bold purple] {instance['instance_type']}, [bold purple]Imagem:[/bold purple] {instance['image']}")
+                    console.print(f"[bold purple][{index+1}][/bold purple] [bold purple]Nome:[/bold purple] {instance['name']}, [bold purple]Tipo:[/bold purple] {instance['instance_type']}, [bold purple]Imagem:[/bold purple] {instance['image']}, [bold purple]Região[código]:[/bold purple] {instance['region']['name']}[{instance['region']['code']}]")
                 console.print("\n")
 
             if selected_index_list == 3:
@@ -131,7 +156,7 @@ def main():
                 data = json.load(f)
                 f.close()
                 for index, sg in enumerate(data["security_groups"]):
-                    console.print(f"[bold purple][{index+1}][/bold purple] [bold purple]Nome:[/bold purple] {sg['name']}, [bold purple]VPC:[/bold purple] {sg['vpc_name']}, [bold purple]Regras:[/bold purple] {sg['rules']}")
+                    console.print(f"[bold purple][{index+1}][/bold purple] [bold purple]Nome:[/bold purple] {sg['name']}")
                 console.print("\n")
 
             if selected_index_list == 4:
@@ -153,6 +178,10 @@ def main():
                 data = json.load(f)
                 f.close()
                 options = [vpc["name"] for vpc in data["vpcs"]]
+                if len(options) == 0:
+                    console.print("Você não possui VPCs\n", style="bold red")
+                    continue
+
                 terminal_menu = TerminalMenu(options, title="Qual VPC deseja deletar?")
                 selected_index_vpc = terminal_menu.show()
                 vpc_name = options[selected_index_vpc]
@@ -166,6 +195,10 @@ def main():
                 data = json.load(f)
                 f.close()
                 options = [subnet["name"] for subnet in data["subnets"]]
+                if len(options) == 0:
+                    console.print("Você não possui subnets\n", style="bold red")
+                    continue
+
                 terminal_menu = TerminalMenu(options, title="Qual Subnet deseja deletar?")
                 selected_index_subnet = terminal_menu.show()
                 subnet_name = options[selected_index_subnet]
@@ -179,6 +212,10 @@ def main():
                 data = json.load(f)
                 f.close()
                 options = [instance["name"] for instance in data["instances"]]
+                if len(options) == 0:
+                    console.print("Você não possui instâncias\n", style="bold red")
+                    continue
+
                 terminal_menu = TerminalMenu(options, title="Qual Instância deseja deletar?")
                 selected_index_instance = terminal_menu.show()
                 instance_name = options[selected_index_instance]
@@ -192,6 +229,10 @@ def main():
                 data = json.load(f)
                 f.close()
                 options = [sg["name"] for sg in data["security_groups"]]
+                if len(options) == 0:
+                    console.print("Você não possui grupos de segurança\n", style="bold red")
+                    continue
+
                 terminal_menu = TerminalMenu(options, title="Qual Grupo de Segurança deseja deletar?")
                 selected_index_sg = terminal_menu.show()
                 sg_name = options[selected_index_sg]
@@ -205,6 +246,10 @@ def main():
                 data = json.load(f)
                 f.close()
                 options = [user["name"] for user in data["users"]]
+                if len(options) == 0:
+                    console.print("Você não possui usuários\n", style="bold red")
+                    continue
+
                 terminal_menu = TerminalMenu(options, title="Qual Usuário deseja deletar?")
                 selected_index_user = terminal_menu.show()
                 user_name = options[selected_index_user]
@@ -237,32 +282,6 @@ def main():
                 run_terraform_command("destroy")
 
         if selected_index == 4:
-            # show actual region
-            # get actual region from json file variables.json
-            f = open('terraform/variables.json')
-            data = json.load(f)
-            f.close()
-            region = data["region"]["name"]
-            console.print(f"Região atual: [bold cyan]{region}[/bold cyan]", style="bold purple")
-            regs = {
-                "Leste dos EUA (Norte da Virgínia)": "us-east-1",
-                "Leste dos EUA (Ohio)": "us-east-2",
-                "Oeste dos EUA (Norte da Califórnia)": "us-west-1",
-                "Oeste dos EUA (Oregon)": "us-west-2",
-            }
-            options = ["Leste dos EUA (Norte da Virgínia)", "Leste dos EUA (Ohio)", "Oeste dos EUA (Norte da California)", "Oeste dos EUA (Oregon)"]
-            terminal_menu = TerminalMenu(options, title="Qual região deseja utilizar?")
-            selected_index_region = terminal_menu.show()
-
-            data["region"]["name"] = options[selected_index_region]
-            data["region"]["code"] = regs[options[selected_index_region]]
-            with open('terraform/variables.json', 'w') as f:
-                json.dump(data, f, indent=4)
-            console.print("Região atualizada com sucesso!", style="bold green")
-            console.print(f"Nova região: [bold cyan]{options[selected_index_region]}[/bold cyan]", style="bold purple")
-            console.print("\n")
-
-        if selected_index == 5:
             reset_credentials()
 
 
