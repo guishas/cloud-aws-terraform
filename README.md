@@ -11,12 +11,19 @@ Python CLI for creating AWS Infrastructure with Terraform
 
 First, clone to project to your desired folder
 
-`git clone https://github.com/guishas/cloud-aws-terraform.git`
+<pre><code> git clone https://github.com/guishas/cloud-aws-terraform.git</code></pre>
 
 Then, install the dependencies needed to run the project at the root folder
 
-`pip install -r requirements.txt`
+<pre><code>pip install -r requirements.txt</code></pre>
+
+If you want, export your AWS credentials to the environment (it's optional) by typing in the console:
+
+<pre><code> 
+export AWS_ACCESS_KEY_ID="<YOUR_ACCESS_KEY_ID>"
+export AWS_SECRET_ACCESS_KEY="<YOUR_SECRET_ACCESS_KEY>"
+</code></pre>
 
 After, run the CLI by typing in the console:
 
-`python cli.py` 
+<pre><code>python cli.py</code></pre>
